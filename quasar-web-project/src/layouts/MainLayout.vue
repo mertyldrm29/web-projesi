@@ -10,41 +10,71 @@
           aria-label="Menu"
           @click="toggleLeftDrawer"
         />
-        <!-- Sağ üst köşeye yerleştirilen buton -->
+        <!-- Sağ üst köşedeki Giriş Yap / Kullanıcı butonu -->
         <q-btn
-          @click="openMenu"
+          @click="toggleMenu"
           icon="person"
           color="primary"
           round
           dense
           class="fixed-top-right q-mr-md q-mt-md"
         >
+          <span v-if="isLoggedIn"
+            >{{ loggedInUser.firstName }} {{ loggedInUser.lastName }}</span
+          >
         </q-btn>
 
         <!-- Açılır Menü -->
         <q-menu v-model="menuVisible" anchor="top right" self="top right">
           <q-card style="min-width: 300px">
             <q-card-section>
-              <h5 class="textgiris">Giriş Yap / Kayıt Ol</h5>
-
-              <!-- Giriş Yap ve Kayıt Ol Butonları -->
-              <div v-if="formType === ''">
+              <!-- Çarpı Tuşu -->
+              <q-btn
+                flat
+                round
+                dense
+                icon="close"
+                color="grey"
+                @click="menuVisible = false"
+                class="fixed-top-right q-mr-md q-mt-md"
+              />
+              <!-- Kullanıcı giriş yapmışsa Hoşgeldiniz mesajı göster -->
+              <div v-if="isLoggedIn">
+                <h5>
+                  Hoşgeldiniz, {{ loggedInUser.firstName }}
+                  {{ loggedInUser.lastName }}!
+                </h5>
                 <q-btn
-                  @click="switchToLogin"
-                  color="primary"
-                  label="Giriş Yap"
+                  @click="logout"
+                  color="negative"
+                  label="Çıkış Yap"
                   dense
-                  class="full-width"
-                />
-                <q-btn
-                  @click="switchToRegister"
-                  color="secondary"
-                  label="Kayıt Ol"
-                  dense
-                  class="full-width"
+                  class="full-width q-mt-md"
                 />
               </div>
 
+              <!-- Kullanıcı giriş yapmamışsa Giriş Yap / Kayıt Ol seçenekleri -->
+              <div v-else>
+                <h5 class="textgiris">Giriş Yap / Kayıt Ol</h5>
+
+                <!-- Giriş Yap ve Kayıt Ol Butonları -->
+                <div v-if="formType === ''">
+                  <q-btn
+                    @click="switchToLogin"
+                    color="primary"
+                    label="Giriş Yap"
+                    dense
+                    class="full-width"
+                  />
+                  <q-btn
+                    @click="switchToRegister"
+                    color="secondary"
+                    label="Kayıt Ol"
+                    dense
+                    class="full-width"
+                  />
+                </div>
+              </div>
               <!-- Giriş Yap Formu -->
               <div v-if="formType === 'login'">
                 <q-btn
@@ -78,7 +108,6 @@
                       color="primary"
                       label="Giriş Yap"
                       dense
-                      @click="loginCheck"
                     />
                   </q-card-actions>
                 </q-form>
@@ -131,7 +160,6 @@
                       color="secondary"
                       label="Kayıt Ol"
                       dense
-                      @click="registerCheck"
                     />
                   </q-card-actions>
                 </q-form>
@@ -176,14 +204,6 @@
 
             <q-item-section> Filtrele </q-item-section>
           </q-item>
-
-          <q-item to="/giris" exact clickable v-ripple>
-            <q-item-section avatar>
-              <q-icon name="login" />
-            </q-item-section>
-
-            <q-item-section> ~Mert Yıldırım 210101070 </q-item-section>
-          </q-item>
         </q-list>
       </q-scroll-area>
     </q-drawer>
@@ -199,7 +219,6 @@
 <script>
 import { defineComponent, ref } from "vue";
 import EssentialLink from "components/EssentialLink.vue";
-
 
 const linksList = [
   {
@@ -262,6 +281,8 @@ export default defineComponent({
       messageColor: "red",
       dialogVisible: false,
       users: [],
+      isLoggedIn: false, // Kullanıcının giriş yapıp yapmadığını kontrol eder
+      loggedInUser: null, // Giriş yapan kullanıcının bilgilerini tutar
     };
   },
   methods: {
@@ -291,8 +312,10 @@ export default defineComponent({
         (user) => user.email === this.email && user.password === this.password
       );
       if (user) {
-        this.messageColor = "green";
-        this.message = "Giriş Başarılı!";
+        this.isLoggedIn = true;
+        this.loggedInUser = user; // Giriş yapan kullanıcının bilgilerini sakla
+        this.formType = "";
+        this.clearForm();
         this.$router.push("/"); // Giriş başarılı olduğunda yönlendirme
       } else {
         this.messageColor = "red";
@@ -300,17 +323,72 @@ export default defineComponent({
       }
     },
     register() {
-      // İsim ve soyisim kontrolü
       if (!this.firstName || !this.lastName || !this.email || !this.password) {
         this.messageColor = "red";
         this.message = "Lütfen tüm alanları doldurun!";
-        return; // Boş alan varsa işlem yapılmaz
+        return;
       }
 
       const existingUser = this.users.find((user) => user.email === this.email);
       if (existingUser) {
         this.messageColor = "red";
         this.message = "Kullanıcı zaten kayıtlı!";
+      } else {
+        const newUser = {
+          firstName: this.firstName,
+          lastName: this.lastName,
+          email: this.email,
+          password: this.password,
+        };
+        this.users.push(newUser);
+        this.isLoggedIn = true; // Kayıt sonrası otomatik giriş
+        this.loggedInUser = newUser; // Yeni kaydedilen kullanıcı bilgileri
+        this.menuVisible = false;
+        this.formType = "";
+        this.clearForm();
+      }
+    },
+    clearForm() {
+      this.firstName = "";
+      this.lastName = "";
+      this.email = "";
+      this.password = "";
+    },
+    logout() {
+      this.isLoggedIn = false;
+      this.loggedInUser = null;
+    },
+    loginCheck() {
+      if (!this.email || !this.password) {
+        this.messageColor = "red";
+        this.message = "Lütfen tüm alanları doldurun!";
+        return;
+      }
+
+      const user = this.users.find(
+        (user) => user.email === this.email && user.password === this.password
+      );
+
+      if (user) {
+        this.$router.push("/");
+      } else {
+        this.messageColor = "red";
+        this.message = "E-posta veya şifre hatalı!";
+      }
+    },
+    // Kayıt kontrol fonksiyonu
+    registerCheck() {
+      if (!this.firstName || !this.lastName || !this.email || !this.password) {
+        this.messageColor = "red";
+        this.message = "Lütfen tüm alanları doldurun!";
+        return;
+      }
+
+      const existingUser = this.users.find((user) => user.email === this.email);
+
+      if (existingUser) {
+        this.messageColor = "red";
+        this.message = "Bu e-posta ile zaten kayıtlı bir kullanıcı var!";
       } else {
         this.users.push({
           firstName: this.firstName,
@@ -320,60 +398,9 @@ export default defineComponent({
         });
         this.messageColor = "green";
         this.message = "Kayıt Başarılı!";
+        this.formType = "";
       }
     },
-    loginCheck() {
-    if (!this.email || !this.password) {
-      this.messageColor = "red";
-      this.message = "Lütfen tüm alanları doldurun!";
-      return;
-    }
-
-    const user = this.users.find(
-      (user) => user.email === this.email && user.password === this.password
-    );
-
-    if (user) {
-      this.messageColor = "green";
-      this.message = "Giriş Başarılı!";
-      this.$router.push("/");
-    } else {
-      this.messageColor = "red";
-      this.message = "E-posta veya şifre hatalı!";
-    }
-  },
-  // Kayıt kontrol fonksiyonu
-  registerCheck() {
-    if (
-      !this.firstName ||
-      !this.lastName ||
-      !this.email ||
-      !this.password
-    ) {
-      this.messageColor = "red";
-      this.message = "Lütfen tüm alanları doldurun!";
-      return;
-    }
-
-    const existingUser = this.users.find(
-      (user) => user.email === this.email
-    );
-
-    if (existingUser) {
-      this.messageColor = "red";
-      this.message = "Bu e-posta ile zaten kayıtlı bir kullanıcı var!";
-    } else {
-      this.users.push({
-        firstName: this.firstName,
-        lastName: this.lastName,
-        email: this.email,
-        password: this.password,
-      });
-      this.messageColor = "green";
-      this.message = "Kayıt Başarılı!";
-      this.formType = "";
-    }
-  },
   },
   setup() {
     const leftDrawerOpen = ref(false);
